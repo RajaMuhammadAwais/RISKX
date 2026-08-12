@@ -47,6 +47,16 @@ Full end-to-end walkthrough of every RISKX feature (`init` → `doctor` → `con
 
 </div>
 
+### 3-Minute Live Session — Narrated End-to-End Demo
+
+<div align="center">
+
+<video width="960" controls src="https://raw.githubusercontent.com/RajaMuhammadAwais/RISKX/main/videos/RISKX_live_session.mp4"></video>
+
+*Narrated live terminal session — all 23 RISKX commands typed in real time with a synced voice-over, real v0.4.0 output, no simulated data. Source: [`videos/RISKX_live_session.mp4`](https://github.com/RajaMuhammadAwais/RISKX/tree/main/videos) in the repository.*
+
+</div>
+
 ---
 
 > **THE NO-GUESSING RULE.** Facts, inferences, and recommendations are separated in the data model. Detection without evidence is reported as `insufficient` confidence — never a fabricated finding. Inferred edges and findings are explicitly labeled and never presented as confirmed. Stale feeds are marked `STALE`, never silently dropped. Feed failures raise explicit errors, never "no data".
