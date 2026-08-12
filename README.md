@@ -41,9 +41,9 @@ Full end-to-end walkthrough of every RISKX feature (`init` → `doctor` → `con
 
 <div align="center">
 
-<video width="960" controls src="https://github.com/RajaMuhammadAwais/RISKX/releases/download/v0.4.0/RISKX_full_features_demo.mp4"></video>
+<video width="960" controls src="https://raw.githubusercontent.com/RajaMuhammadAwais/RISKX/main/videos/RISKX_full_features_demo.mp4"></video>
 
-*Terminal recording — real RISKX v0.4.0 output, evidence-backed findings, no simulated data. Source: [`RISKX_full_features_demo.mp4`](https://github.com/RajaMuhammadAwais/RISKX/releases/download/v0.4.0/RISKX_full_features_demo.mp4) (released with [v0.4.0](https://github.com/RajaMuhammadAwais/RISKX/releases/tag/v0.4.0)).*
+*Terminal recording — real RISKX v0.4.0 output, evidence-backed findings, no simulated data. Source: [`videos/RISKX_full_features_demo.mp4`](https://github.com/RajaMuhammadAwais/RISKX/tree/main/videos) in the repository.*
 
 </div>
 
