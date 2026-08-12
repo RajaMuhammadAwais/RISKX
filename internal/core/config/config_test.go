@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -63,7 +64,9 @@ func TestSavePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0600 {
+	// Windows ignores permission bits on file creation, so the 0600
+	// contract is only assertable on POSIX systems.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 		t.Fatalf("config must be written 0600, got %04o", info.Mode().Perm())
 	}
 }

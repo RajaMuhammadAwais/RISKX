@@ -6,6 +6,7 @@ package storage
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -30,7 +31,9 @@ func TestSchemaPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}
-	if info.Mode().Perm() != 0600 {
+	// Windows ignores permission bits on file creation, so the 0600
+	// contract is only assertable on POSIX systems.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 		t.Errorf("db permissions = %o, want 0600", info.Mode().Perm())
 	}
 }

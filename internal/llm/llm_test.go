@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -182,8 +183,14 @@ func TestExplainTimeout(t *testing.T) {
 	body, _ := json.Marshal(want)
 	c := &timingClient{body: body, code: http.StatusOK}
 	res := Explain(context.Background(), c, Config{Enabled: true, APIKey: "k", Model: "m"}, Request{})
-	if c.elapsed == 0 || c.elapsed > 31*time.Second {
+	// Windows timers have coarse resolution (~15ms); a fast in-process
+	// call can legitimately measure 0 elapsed time there, so the lower bound
+	// is only asserted on POSIX systems.
+	if runtime.GOOS != "windows" && c.elapsed == 0 {
 		t.Errorf("unexpected elapsed: %v", c.elapsed)
+	}
+	if c.elapsed > 31*time.Second {
+		t.Errorf("elapsed too large: %v", c.elapsed)
 	}
 	if res.Failed {
 		t.Fatalf("unexpected failure: %s", res.FailureMsg)

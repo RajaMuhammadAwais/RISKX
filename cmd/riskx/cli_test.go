@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -12,8 +13,9 @@ func buildBinary(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	bin := dir + "/riskx"
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	cmd.Dir = t.TempDir() // replaced below
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build failed: %s: %v", out, err)
 	}
