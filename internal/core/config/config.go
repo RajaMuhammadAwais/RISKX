@@ -23,7 +23,7 @@ const (
 	// DefaultConfigPath is the default configuration file location.
 	DefaultConfigPath = "config.yaml"
 	// ToolVersion is the current RISKX version (spec §45).
-	ToolVersion = "0.3.0"
+	ToolVersion = "0.4.0"
 )
 
 // Config is the top-level RISKX configuration.

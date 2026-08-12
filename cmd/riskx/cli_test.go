@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/RajaMuhammadAwais/RISKX/internal/core/config"
 )
 
 func buildBinary(t *testing.T) string {
@@ -28,7 +30,7 @@ func TestCLIVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("version failed: %s: %v", out, err)
 	}
-	if !strings.Contains(string(out), "RISKX 0.3.0") {
+	if !strings.Contains(string(out), "RISKX "+config.ToolVersion) {
 		t.Fatalf("unexpected version output: %s", out)
 	}
 }

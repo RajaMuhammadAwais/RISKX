@@ -16,7 +16,7 @@
 
 **Powered by [RAJA MUHAMMAD AWAIS](https://github.com/RajaMuhammadAwais) — Cyber Security Researcher**
 
-[![Release](https://img.shields.io/github/v/tag/RajaMuhammadAwais/RISKX?label=release&sort=semver&color=blue)](https://github.com/RajaMuhammadAwais/RISKX/releases/tag/v0.3.0)
+[![Release](https://img.shields.io/github/v/tag/RajaMuhammadAwais/RISKX?label=release&sort=semver&color=blue)](https://github.com/RajaMuhammadAwais/RISKX/releases/tag/v0.4.0)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 [![Go](https://img.shields.io/badge/go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/RajaMuhammadAwais/RISKX)](https://goreportcard.com/report/github.com/RajaMuhammadAwais/RISKX)
@@ -61,6 +61,33 @@ Most security tools present conclusions as facts. RISKX presents conclusions wit
 | `riskx explain` | Optional **LLM explanation layer** (OFF by default). The operator supplies their own LLM API key (`RISKX_LLM_API_KEY` — never embedded, never logged) and names their own model (`llm.model`). Supports any OpenAI-compatible endpoint, including self-hosted providers via `llm.base_url`. The LLM may only **explain verified native content**; it never sets severity, confidence, classification, or remediation. Provider failures degrade gracefully — the native output always prints. |
 
 These updates follow the research-backed roadmap (P0: agent data layer, CT-log attack-surface depth, agentic AI consumers): agents integrate over the canonical JSON evidence API instead of building their own scanners. Full flag tables are in the [Flags Reference](#flags-reference).
+
+## What's New in v0.4.0
+
+| Feature | Description |
+| --- | --- |
+| `riskx feed sync` | Pulls **verified primary sources** (CISA KEV catalog, FIRST EPSS scores) into a local, provenance-tagged offline cache (`~/.riskx/feed.json` by default). Every row records its source URL and fetch timestamp; entries older than 7 days are marked `STALE`, never silently trusted — a failed fetch keeps the last usable cache and reports the failure explicitly (spec §48: feed down → marked stale, never "no data"). |
+| `riskx feed list` | Lists every cached feed entry — source, CVE, descriptor, fetch time, and staleness — with **zero network requests**. The cache is the authoritative offline copy, so researchers can inspect enrichment evidence without touching upstream catalogs. `--stale` filters to expired entries; `--json` emits canonical JSON. |
+| `riskx prioritize` | Ranks stored findings by **documented public exploitation evidence only**: CISA KEV membership (confirmed in-the-wild exploitation) and FIRST EPSS scores (published exploitation probability). Findings with no public exploit evidence are ranked last. Every rank line carries the exact evidence that produced it — source URL, CVE, and value — and the underlying `rank-v1` model is fully deterministic (ties broken by severity, then finding ID). Requires a populated evidence store and a synced feed cache; purely local and offline. |
+| Feed-aware vuln pipeline | The vulnerability enricher now merges the offline KEV/EPSS cache with the evidence store using source-aware merging — a sync that fails partway never wipes rows from a healthy source. |
+
+The v0.4.0 release implements the evidence-based prioritization layer of the research roadmap: enrichment data must be **offline-verifiable, provenance-tagged, and stale-marked** before any finding can be ranked on it — no live-only lookups, no inferred exploit claims. Full flag tables are in the [Flags Reference](#flags-reference).
+
+### v0.4.0 Quick Start Additions
+
+```bash
+# 0. Pull verified feeds into the local offline cache (the only network touch-point)
+riskx feed sync                        # sync KEV catalog
+riskx feed sync --epss CVE-2021-44228,CVE-2024-3094   # also pull EPSS for listed CVEs
+
+# Inspect the cache offline (no network)
+riskx feed list
+riskx feed list --stale --json
+
+# Rank findings by documented exploit evidence (offline, deterministic)
+riskx prioritize                       # requires --data store + synced cache
+riskx prioritize --data ./riskx.db --json
+```
 
 ## Operating System Compatibility
 
@@ -170,25 +197,32 @@ The CTEM loop in five commands:
 # 1. Discover assets (passive, read-only); --ct adds certificate-transparency enumeration
 riskx discover example.com --ct --data ./riskx.db
 
-# 2. Enrich vulnerabilities (CISA KEV, NVD CVSS, FIRST EPSS, OSV aliases)
+# 2. Pull verified feeds into the offline cache (KEV / EPSS) — do this first
+riskx feed sync
+riskx feed sync --epss CVE-2021-44228,CVE-2024-3094
+
+# 3. Enrich vulnerabilities (CISA KEV, NVD CVSS, FIRST EPSS, OSV aliases)
 riskx vuln CVE-2021-44228 --data ./riskx.db
 
-# 3. Score risk deterministically
+# 3b. Rank what to fix first by documented exploit evidence (offline, deterministic)
+riskx prioritize --data ./riskx.db
+
+# 4. Score risk deterministically
 riskx risk --data ./riskx.db
 
-# 4. Validate safely (read-only checks, no exploitation)
+# 5. Validate safely (read-only checks, no exploitation)
 riskx validate tls example.com --data ./riskx.db
 
-# 5. Report + export for your SOC / ticketing system
+# 6. Report + export for your SOC / ticketing system
 riskx report summary --data ./riskx.db
 riskx export sarif  --data ./riskx.db > riskx.sarif   # GitHub/SonarQube compatible
 riskx export csv    --data ./riskx.db > riskx.csv
 riskx export jsonl  --data ./riskx.db > riskx.jsonl
 
-# 6. Optional: serve the evidence store as a read-only JSON API (agents / BI / SIEM)
+# 7. Optional: serve the evidence store as a read-only JSON API (agents / BI / SIEM)
 riskx serve --data ./riskx.db --listen 127.0.0.1:8890 --key "$RISKX_API_KEY"
 
-# 7. Optional: LLM explanation of a verified finding (off by default)
+# 8. Optional: LLM explanation of a verified finding (off by default)
 riskx explain --finding <id> --data ./riskx.db   # needs llm.enabled + RISKX_LLM_API_KEY
 ```
 
@@ -203,8 +237,10 @@ riskx scan example.com --mode passive
 | Command | What it does |
 | --- | --- |
 | `discover` | Passive asset discovery: DNS, HTTP, TLS, RDAP, TCP reachability, CT-log enumeration (`--ct`) |
+| `feed` | Manage the offline intelligence cache: `feed sync` (pull KEV/EPSS into `~/.riskx/feed.json`), `feed list` (offline inspection, `--stale`) |
 | `serve` | Read-only JSON API over the evidence store; user key via `RISKX_API_KEY` |
 | `vuln` | Vulnerability intelligence: CISA KEV, NVD CVSS, FIRST EPSS, OSV aliases |
+| `prioritize` | Rank stored findings by documented public exploit evidence (KEV + EPSS, model `rank-v1`); offline, deterministic |
 | `risk` | Deterministic risk scoring (`risk-v1`) with factor tables |
 | `attack-path` | Rank attack paths from internet entry to critical assets |
 | `graph` | Inspect the evidence-backed attack graph (centrality, edges) |
@@ -275,6 +311,23 @@ Commands marked *future phase* (`identity`, `agent`, `mcp`) are scaffolded and r
 | `--ci` | CI mode | off |
 | `--preapprove` | Pre-approve the printed plan (CI only) | off |
 | `--data` | Evidence store path; env `RISKX_DATA` | `~/.riskx/riskx.db` |
+
+### `feed sync` / `feed list`
+| Flag | Purpose | Default |
+| --- | --- | --- |
+| `--cache` | Feed cache file path | `~/.riskx/feed.json` |
+| `--epss` | Comma-separated CVEs to also pull FIRST EPSS scores for (`sync` only) | — |
+| `--stale` | Show only STALE (7+ day old) entries (`list` only) | off |
+
+The feed cache is the **only** point where RISKX touches upstream catalogs; every other command reads the cached, provenance-tagged copy. Failed fetches keep the last usable cache and report the failure explicitly — data is marked `STALE`, never silently removed.
+
+### `prioritize`
+| Flag | Purpose | Default |
+| --- | --- | --- |
+| `--data` | Evidence store path; env `RISKX_DATA` | `~/.riskx/riskx.db` |
+| `--cache` | Feed cache file path | `~/.riskx/feed.json` |
+
+Requires both a populated evidence store (findings with CVE references) and a synced feed cache (`riskx feed sync`). Ranking uses documented public exploitation evidence only (`rank-v1`): KEV membership beats EPSS≥0.5, both beat no-evidence; ties are broken by severity then finding ID. Offline and deterministic.
 
 ### `serve`
 
