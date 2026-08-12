@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -40,8 +41,8 @@ func TestSchemaPermissions(t *testing.T) {
 
 // TestSchemaVersion verifies the versioned schema marker.
 func TestSchemaVersion(t *testing.T) {
-	if SchemaVersion() != "storage-v1" {
-		t.Errorf("schema version = %q, want storage-v1", SchemaVersion())
+	if SchemaVersion() != "storage-v2" {
+		t.Errorf("schema version = %q, want storage-v2", SchemaVersion())
 	}
 }
 
@@ -183,5 +184,47 @@ func TestCount(t *testing.T) {
 	}
 	if a2 != 1 || f2 != 0 || r2 != 0 {
 		t.Errorf("after insert counts = %d/%d/%d, want 1/0/0", a2, f2, r2)
+	}
+}
+
+// TestDeltaSnapshotRoundtrip pins the delta-v1 snapshot persistence path:
+// write, idempotent re-insert, load by ID, and ordering of snapshot IDs.
+func TestDeltaSnapshotRoundtrip(t *testing.T) {
+	s := newTestStore(t)
+	p1 := json.RawMessage(`{"id":"snap-1","schema":"delta-v1"}`)
+	p2 := json.RawMessage(`{"id":"snap-2","schema":"delta-v1"}`)
+	t1 := time.Date(2026, 8, 12, 0, 0, 1, 0, time.UTC)
+	t2 := time.Date(2026, 8, 12, 0, 0, 2, 0, time.UTC)
+	if err := s.PutDeltaSnapshot("snap-1", p1, t1); err != nil {
+		t.Fatalf("put snap-1: %v", err)
+	}
+	// Idempotency: re-inserting with the same ID must not fail.
+	if err := s.PutDeltaSnapshot("snap-1", p1, t1); err != nil {
+		t.Fatalf("re-insert snap-1: %v", err)
+	}
+	if err := s.PutDeltaSnapshot("snap-2", p2, t2); err != nil {
+		t.Fatalf("put snap-2: %v", err)
+	}
+	ids, err := s.ListDeltaSnapshotIDs()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(ids) != 2 || ids[0] != "snap-1" || ids[1] != "snap-2" {
+		t.Errorf("ids = %v, want [snap-1 snap-2]", ids)
+	}
+	got, err := s.DeltaSnapshotPayload("snap-2")
+	if err != nil {
+		t.Fatalf("payload: %v", err)
+	}
+	if string(got) != string(p2) {
+		t.Errorf("payload = %q, want %q", got, p2)
+	}
+	// Missing snapshot must not be an error (no prior snapshot = first run).
+	none, err := s.DeltaSnapshotPayload("snap-missing")
+	if err != nil {
+		t.Fatalf("payload missing: %v", err)
+	}
+	if none != nil {
+		t.Errorf("missing snapshot must return nil, got %q", none)
 	}
 }

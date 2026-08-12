@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"context"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/RajaMuhammadAwais/RISKX/internal/core/errs"
 	"github.com/RajaMuhammadAwais/RISKX/internal/core/idgen"
+	"github.com/RajaMuhammadAwais/RISKX/internal/delta"
 	"github.com/RajaMuhammadAwais/RISKX/internal/core/mode"
 	"github.com/RajaMuhammadAwais/RISKX/internal/core/output"
 	"github.com/RajaMuhammadAwais/RISKX/internal/discovery/ctlog"
@@ -36,6 +38,7 @@ func newDiscoverCmd() *cobra.Command {
 		fFile    string
 		fData    string
 		fCT      bool
+		fDelta   bool
 		allCTEv  []models.Evidence
 	)
 	cmd := &cobra.Command{
@@ -102,6 +105,9 @@ reports 'insufficient' confidence rather than guessing.`,
 						if len(allCTEv) > 0 {
 							putEvidence(cmd, s, allCTEv)
 						}
+						if fDelta {
+							deltaRun(cmd, s, assets, allCTEv)
+						}
 						storeClose(s)
 					} else {
 						cmd.PrintErrf("warning: evidence store not written: %v\n", serr)
@@ -116,6 +122,7 @@ reports 'insufficient' confidence rather than guessing.`,
 	cmd.Flags().StringVar(&fFile, "file", "", "file of targets, one per line")
 	cmd.Flags().BoolVar(&fCT, "ct", false, "add certificate-transparency enumeration (public CT logs; passive)")
 	cmd.Flags().StringVar(&fData, "data", os.Getenv("RISKX_DATA"), "evidence store path (or 'off' to disable; env RISKX_DATA)")
+	cmd.Flags().BoolVar(&fDelta, "delta", false, "snapshot this run and print changes vs the prior run (requires --data)")
 	return cmd
 }
 
@@ -221,6 +228,58 @@ func putAssets(cmd *cobra.Command, s *storage.Store, assets []models.Asset) {
 		return
 	}
 	cmd.PrintErrf("stored %d asset record(s) (%s)\n", n, storage.SchemaVersion())
+}
+
+// deltaRun snapshots the current run and diffs it against the prior stored
+// snapshot (delta-v1). No-op without --delta; snapshot store failures warn
+// but never fail the run — the primary deliverable is the discovery output.
+func deltaRun(cmd *cobra.Command, s *storage.Store, assets []models.Asset, ctEv []models.Evidence) {
+	if s == nil {
+		return
+	}
+	// Snapshot ID is content-addressed from the run's discovery inputs so
+	// identical runs reproduce identical snapshot IDs (spec §27, §43).
+	snapID := idgen.SnapshotID("run", assets)
+	snap := delta.NewSnapshot(snapID, assets, nil)
+	b, err := json.Marshal(snap)
+	if err != nil {
+		cmd.PrintErrf("warning: delta snapshot: %v\n", err)
+		return
+	}
+	if perr := s.PutDeltaSnapshot(snapID, json.RawMessage(b), snap.TakenAt); perr != nil {
+		cmd.PrintErrf("warning: delta snapshot: %v\n", perr)
+		return
+	}
+	ids, ierr := s.ListDeltaSnapshotIDs()
+	if ierr != nil {
+		cmd.PrintErrf("warning: delta snapshot: %v\n", ierr)
+		return
+	}
+	var prior *delta.Snapshot
+	// Skip the snapshot just stored (last element) when resolving the prior.
+	if len(ids) > 1 {
+		payload, perr := s.DeltaSnapshotPayload(ids[len(ids)-2])
+		if perr == nil && payload != nil {
+			p := &delta.Snapshot{}
+			if json.Unmarshal(payload, p) == nil {
+				p.NormalizeHashes()
+				prior = p
+			}
+		}
+	}
+	if prior == nil {
+		cmd.PrintErrf("delta: snapshot %s stored (first run for these targets; run again to see changes)\n", snapID)
+		return
+	}
+	items := delta.Diff(prior, assets, nil, snapID)
+	cmd.PrintErrf("delta: snapshot %s — %s\n", snapID, summaryText(delta.Summary(items)))
+	for _, it := range items {
+		cmd.PrintErrf("  %s: %s (label=%q", it.Kind, it.ID, it.Label)
+		if len(it.Changes) > 0 {
+			cmd.PrintErrf(", changes=%v", it.Changes)
+		}
+		cmd.PrintErrf(")\n")
+	}
 }
 
 // --- scan ----------------------------------------------------------------

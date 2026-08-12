@@ -22,7 +22,7 @@ import (
 	"github.com/RajaMuhammadAwais/RISKX/pkg/models"
 )
 
-const schemaVersion = "storage-v1"
+const schemaVersion = "storage-v2"
 
 const migrations = `
 CREATE TABLE IF NOT EXISTS assets (
@@ -90,6 +90,12 @@ CREATE TABLE IF NOT EXISTS riskscores (
 );
 CREATE INDEX IF NOT EXISTS idx_evidence_finding ON evidence(finding_id);
 CREATE INDEX IF NOT EXISTS idx_evidence_asset ON evidence(asset_id);
+CREATE TABLE IF NOT EXISTS deltasnapshots (
+	id TEXT PRIMARY KEY,
+	taken_at TEXT NOT NULL,
+	schema_version TEXT NOT NULL,
+	payload TEXT NOT NULL
+);
 `
 
 // Store is the local SQLite store.
@@ -459,3 +465,48 @@ func (s *Store) ListRelationships() ([]RelationshipRow, error) {
 func marshal(v any) ([]byte, error) { return json.Marshal(v) }
 
 func unmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }
+
+// PutDeltaSnapshot persists a delta-v1 snapshot. The payload is the canonical
+// JSON of delta.Snapshot; insertion is idempotent by snapshot ID.
+func (s *Store) PutDeltaSnapshot(id string, payload json.RawMessage, takenAt time.Time) error {
+	_, err := s.db.Exec(`INSERT INTO deltasnapshots (id, taken_at, schema_version, payload)
+		VALUES (?,?,?,?) ON CONFLICT(id) DO NOTHING`,
+		id, takenAt.UTC().Format(time.RFC3339), "delta-v1", string(payload))
+	if err != nil {
+		return errs.Wrap(errs.CodeInternal, "storage.put_delta_snapshot", "insert failed", err)
+	}
+	return nil
+}
+
+// DeltaSnapshotPayload returns the JSON payload of a stored snapshot by ID.
+// Returns nil, nil when not found (caller treats as "no prior snapshot").
+func (s *Store) DeltaSnapshotPayload(id string) (json.RawMessage, error) {
+	var p string
+	err := s.db.QueryRow(`SELECT payload FROM deltasnapshots WHERE id=?`, id).Scan(&p)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errs.Wrap(errs.CodeInternal, "storage.delta_snapshot_payload", "query failed", err)
+	}
+	return json.RawMessage(p), nil
+}
+
+// ListDeltaSnapshotIDs returns stored snapshot IDs ordered by take time
+// (newest last). An empty slice is returned when none exist.
+func (s *Store) ListDeltaSnapshotIDs() ([]string, error) {
+	rows, err := s.db.Query(`SELECT id FROM deltasnapshots ORDER BY taken_at ASC, id ASC`)
+	if err != nil {
+		return nil, errs.Wrap(errs.CodeInternal, "storage.list_delta_snapshots", "query failed", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, errs.Wrap(errs.CodeInternal, "storage.list_delta_snapshots", "scan failed", err)
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}

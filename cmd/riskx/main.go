@@ -69,6 +69,7 @@ Exit codes: 0 = no policy violation, 1 = policy violation, 2 = execution error.`
 	root.AddCommand(newServeCmd())
 	root.AddCommand(newFeedCmd())
 	root.AddCommand(newPrioritizeCmd())
+	root.AddCommand(newDeltaCmd())
 	root.AddCommand(newExplainCmd())
 
 	configureLogging()

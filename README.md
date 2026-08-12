@@ -70,6 +70,7 @@ These updates follow the research-backed roadmap (P0: agent data layer, CT-log a
 | `riskx feed list` | Lists every cached feed entry — source, CVE, descriptor, fetch time, and staleness — with **zero network requests**. The cache is the authoritative offline copy, so researchers can inspect enrichment evidence without touching upstream catalogs. `--stale` filters to expired entries; `--json` emits canonical JSON. |
 | `riskx prioritize` | Ranks stored findings by **documented public exploitation evidence only**: CISA KEV membership (confirmed in-the-wild exploitation) and FIRST EPSS scores (published exploitation probability). Findings with no public exploit evidence are ranked last. Every rank line carries the exact evidence that produced it — source URL, CVE, and value — and the underlying `rank-v1` model is fully deterministic (ties broken by severity, then finding ID). Requires a populated evidence store and a synced feed cache; purely local and offline. |
 | Feed-aware vuln pipeline | The vulnerability enricher now merges the offline KEV/EPSS cache with the evidence store using source-aware merging — a sync that fails partway never wipes rows from a healthy source. |
+| Delta scanning (`delta-v1`) | `riskx delta` diffs the two most recent scan snapshots stored in the evidence store and reports **new, gone, and changed assets** plus **new, resolved, and changed findings**. `riskx discover --delta` snapshots each run (content-addressed snapshot IDs — identical runs reproduce identical IDs) and prints the change summary versus the prior run. Every delta item is auditable: it carries the SHA-256 hashes of the compared content and the exact fingerprint fields that drifted (e.g. `http_server`), never guessed interpretations. |
 
 The v0.4.0 release implements the evidence-based prioritization layer of the research roadmap: enrichment data must be **offline-verifiable, provenance-tagged, and stale-marked** before any finding can be ranked on it — no live-only lookups, no inferred exploit claims. Full flag tables are in the [Flags Reference](#flags-reference).
 
@@ -87,6 +88,14 @@ riskx feed list --stale --json
 # Rank findings by documented exploit evidence (offline, deterministic)
 riskx prioritize                       # requires --data store + synced cache
 riskx prioritize --data ./riskx.db --json
+
+# Delta scanning: snapshot each run, report changes vs the prior run
+riskx discover example.com --data ./riskx.db --delta
+riskx discover example.com --data ./riskx.db --delta   # second run shows new/gone/changed assets vs the first
+
+# Replay any earlier pair of stored snapshots
+riskx delta --data ./riskx.db --json
+riskx delta --data ./riskx.db --since snap-abcdef1234567890
 ```
 
 ## Operating System Compatibility
@@ -300,6 +309,7 @@ riskx scan example.com --mode passive
 | `serve` | Read-only JSON API over the evidence store; user key via `RISKX_API_KEY` |
 | `vuln` | Vulnerability intelligence: CISA KEV, NVD CVSS, FIRST EPSS, OSV aliases |
 | `prioritize` | Rank stored findings by documented public exploit evidence (KEV + EPSS, model `rank-v1`); offline, deterministic |
+| `delta` | Delta scanning (model `delta-v1`): diff the two most recent stored scan snapshots — new/gone/changed assets, new/resolved/changed findings — with auditable SHA-256 hashes and field-level drift details |
 | `risk` | Deterministic risk scoring (`risk-v1`) with factor tables |
 | `attack-path` | Rank attack paths from internet entry to critical assets |
 | `graph` | Inspect the evidence-backed attack graph (centrality, edges) |
@@ -342,6 +352,7 @@ Commands marked *future phase* (`identity`, `agent`, `mcp`) are scaffolded and r
 | `--ports` | TCP ports to probe (connect-only), comma-separated | — |
 | `--ct` | Add certificate-transparency enumeration (public CT logs; wildcards reported as-is) | off |
 | `--data` | Evidence store path; `off` to disable; env `RISKX_DATA` | `~/.riskx/riskx.db` |
+| `--delta` | Snapshot this run and print changes versus the prior stored snapshot (new/gone/changed assets) | off |
 
 ### `vuln` / `risk`
 
@@ -387,6 +398,14 @@ The feed cache is the **only** point where RISKX touches upstream catalogs; ever
 | `--cache` | Feed cache file path | `~/.riskx/feed.json` |
 
 Requires both a populated evidence store (findings with CVE references) and a synced feed cache (`riskx feed sync`). Ranking uses documented public exploitation evidence only (`rank-v1`): KEV membership beats EPSS≥0.5, both beat no-evidence; ties are broken by severity then finding ID. Offline and deterministic.
+
+### `delta`
+| Flag | Purpose | Default |
+| --- | --- | --- |
+| `--data` | Evidence store path; env `RISKX_DATA` | `~/.riskx/riskx.db` |
+| `--since` | Pin the older snapshot ID; compared against the next chronologically stored snapshot | latest stored |
+
+Snapshots are content-addressed — identical runs reproduce identical snapshot IDs — so delta reports stay reproducible and audit-grade: every change carries the SHA-256 hashes of both compared contents and the exact fingerprint fields that drifted. With only one stored snapshot the first run prints a confirmation message and stores the snapshot; subsequent runs compare against it.
 
 ### `serve`
 

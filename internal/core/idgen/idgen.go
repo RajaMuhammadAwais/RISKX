@@ -29,6 +29,13 @@ func EvidenceID(parts ...any) string {
 	return models.ContentID("ev", parts...)
 }
 
+// SnapshotID returns a stable snapshot identifier derived from the run's
+// discovered content so identical runs produce identical snapshot IDs
+// (reproducibility, spec §27, §43).
+func SnapshotID(parts ...any) string {
+	return "snap-" + short(models.ContentID("snap", parts...))
+}
+
 // short truncates a hex content ID to 16 characters, keeping determinism.
 func short(s string) string {
 	const n = 16
