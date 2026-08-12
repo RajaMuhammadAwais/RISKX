@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -112,8 +113,17 @@ func TestSaveAndReloadRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0600 {
-		t.Fatalf("feed cache must be 0600, got %o", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		if info.Mode().Perm() != 0600 {
+			t.Fatalf("feed cache must be 0600, got %o", info.Mode().Perm())
+		}
+	} else {
+		// Windows ignores POSIX permission bits in the umask: os.WriteFile(0600)
+		// materializes as 0666 minus umask. Verify the write succeeded and the
+		// content round-trips instead of asserting exact bits.
+		if !info.Mode().IsRegular() {
+			t.Fatalf("feed cache must be a regular file, got mode %v", info.Mode())
+		}
 	}
 	c2, err := Open(p)
 	if err != nil {
