@@ -14,11 +14,10 @@
 
 **Powered by [RAJA MUHAMMAD AWAIS](https://github.com/RajaMuhammadAwais) — Cyber Security Researcher**
 
-[![Release](https://img.shields.io/github/v/tag/RajaMuhammadAwais/RISKX?label=release&sort=semver&color=blue)](https://github.com/RajaMuhammadAwais/RISKX/releases/tag/v0.2.1)
+[![Release](https://img.shields.io/github/v/tag/RajaMuhammadAwais/RISKX?label=release&sort=semver&color=blue)](https://github.com/RajaMuhammadAwais/RISKX/releases/tag/v0.3.0)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 [![Go](https://img.shields.io/badge/go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/RajaMuhammadAwais/RISKX)](https://goreportcard.com/report/github.com/RajaMuhammadAwais/RISKX)
-[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-success?logo=github-actions&logoColor=white)](https://github.com/RajaMuhammadAwais/RISKX/tree/main/.github/workflows)
 [![Static Analysis](https://img.shields.io/badge/staticcheck-clean-brightgreen)](https://staticcheck.dev/)
 [![Tests](https://img.shields.io/badge/tests-15%2F15%20passing-green)](https://github.com/RajaMuhammadAwais/RISKX)
 [![Non-Commercial](https://img.shields.io/badge/non--commercial%20open%20source-red)](NON_COMMERCIAL.md)
@@ -156,8 +155,8 @@ riskx doctor          # self-diagnoses your environment
 The CTEM loop in five commands:
 
 ```bash
-# 1. Discover assets (passive, read-only)
-riskx discover example.com --data ./riskx.db
+# 1. Discover assets (passive, read-only); --ct adds certificate-transparency enumeration
+riskx discover example.com --ct --data ./riskx.db
 
 # 2. Enrich vulnerabilities (CISA KEV, NVD CVSS, FIRST EPSS, OSV aliases)
 riskx vuln CVE-2021-44228 --data ./riskx.db
@@ -173,6 +172,12 @@ riskx report summary --data ./riskx.db
 riskx export sarif  --data ./riskx.db > riskx.sarif   # GitHub/SonarQube compatible
 riskx export csv    --data ./riskx.db > riskx.csv
 riskx export jsonl  --data ./riskx.db > riskx.jsonl
+
+# 6. Optional: serve the evidence store as a read-only JSON API (agents / BI / SIEM)
+riskx serve --data ./riskx.db --listen 127.0.0.1:8890 --key "$RISKX_API_KEY"
+
+# 7. Optional: LLM explanation of a verified finding (off by default)
+riskx explain --finding <id> --data ./riskx.db   # needs llm.enabled + RISKX_LLM_API_KEY
 ```
 
 Run everything at once:
@@ -185,7 +190,8 @@ riskx scan example.com --mode passive
 
 | Command | What it does |
 | --- | --- |
-| `discover` | Passive asset discovery: DNS, HTTP, TLS, RDAP, TCP reachability |
+| `discover` | Passive asset discovery: DNS, HTTP, TLS, RDAP, TCP reachability, CT-log enumeration (`--ct`) |
+| `serve` | Read-only JSON API over the evidence store; user key via `RISKX_API_KEY` |
 | `vuln` | Vulnerability intelligence: CISA KEV, NVD CVSS, FIRST EPSS, OSV aliases |
 | `risk` | Deterministic risk scoring (`risk-v1`) with factor tables |
 | `attack-path` | Rank attack paths from internet entry to critical assets |
@@ -202,6 +208,7 @@ riskx scan example.com --mode passive
 | `init` | Initialize the configuration directory |
 | `doctor` | Diagnose the local environment |
 | `version` | Print versions (tool + all data models) |
+| `explain` | Optional LLM explanation of verified findings; user key via `RISKX_LLM_API_KEY` (off by default) |
 
 Commands marked *future phase* (`identity`, `agent`, `mcp`) are scaffolded and reserved; they print a clear status message and do nothing silently.
 
@@ -226,6 +233,7 @@ Commands marked *future phase* (`identity`, `agent`, `mcp`) are scaffolded and r
 | `--mode` | Discovery mode: `passive` or `safe` | `passive` |
 | `--records` | DNS record types, comma-separated | `A,AAAA,CNAME,MX,NS,TXT` |
 | `--ports` | TCP ports to probe (connect-only), comma-separated | — |
+| `--ct` | Add certificate-transparency enumeration (public CT logs; wildcards reported as-is) | off |
 | `--data` | Evidence store path; `off` to disable; env `RISKX_DATA` | `~/.riskx/riskx.db` |
 
 ### `vuln` / `risk`
@@ -255,6 +263,27 @@ Commands marked *future phase* (`identity`, `agent`, `mcp`) are scaffolded and r
 | `--ci` | CI mode | off |
 | `--preapprove` | Pre-approve the printed plan (CI only) | off |
 | `--data` | Evidence store path; env `RISKX_DATA` | `~/.riskx/riskx.db` |
+
+### `serve`
+
+| Flag | Purpose | Default |
+| --- | --- | --- |
+| `--data` | Evidence store path; env `RISKX_DATA` | `~/.riskx/riskx.db` |
+| `--listen` | Bind address | `127.0.0.1:8890` |
+| `--key` | API key for `/v1` access; env `RISKX_API_KEY` (recommended) | — |
+
+Without a key the API refuses all authenticated endpoints (`401`). Serves: `GET /v1/assets`, `/v1/findings`, `/v1/evidence`, `/v1/relationships`, `/v1/risk`, `/v1/health`, `/v1/metadata`.
+
+### `explain`
+
+| Flag | Purpose | Default |
+| --- | --- | --- |
+| `--finding` | Finding id from the evidence store | — |
+| `--text` | Verified text to explain | — |
+| `--prompt` | Override the explanation prompt | research-based default |
+| `--data` | Evidence store path (with `--finding`); env `RISKX_DATA` | `~/.riskx/riskx.db` |
+
+Requires `llm.enabled: true` in config plus `RISKX_LLM_API_KEY` and `llm.model`. The LLM only explains verified native content — it never sets severity, confidence, or classification.
 
 ### `report`, `export`, `scan`, `attack-path`, `policy`, `continuous`
 
@@ -385,20 +414,9 @@ go test ./... -race     # race detector (pure-Go SQLite driver; no gcc needed)
 go test -bench=. -run=^$ ./internal/risk ./internal/vulnerability/ingest
 ```
 
-## CI/CD
-
-GitHub Actions run on every push and pull request. All action versions are pinned:
-
-| Workflow | Checks | Pinned versions |
-| --- | --- | --- |
-| `ci.yml` | build (linux/darwin/windows), `go test -race`, `go vet`, `go mod tidy -diff` | actions/setup-go@v7 |
-| `lint.yml` | golangci-lint (`errcheck`, `govet`, `ineffassign`, `staticcheck`, `unparam`, `unused`, `whitespace`) | golangci-lint-action@v9, linter v2.1.6 |
-| `staticcheck.yml` | honnef staticcheck | dominikh/staticcheck-action@v1 |
-| `vuln.yml` | govulncheck dependency scan | golang/govulncheck-action@v1 |
-
 ## Benchmarks
 
-Measured on live hardware (Ubuntu 24.04, linux/amd64, Go 1.26.5) — see [`docs/research/benchmarks.md`](docs/research/benchmarks.md):
+Measured on live hardware (Ubuntu 24.04, linux/amd64):
 
 | Benchmark | Result |
 | --- | --- |

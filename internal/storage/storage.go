@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -371,6 +372,85 @@ func jsonDecode(s string, v any) error {
 		return nil
 	}
 	return unmarshal([]byte(s), v)
+}
+
+// EvidenceRow is a stored evidence row with its link IDs. Returned by the
+// read-only evidence API; evidence payloads are the stored JSON values so
+// roundtrip fidelity is preserved.
+type EvidenceRow struct {
+	ID        string          `json:"id"`
+	FindingID string          `json:"finding_id"`
+	AssetID   string          `json:"asset_id"`
+	Payload   json.RawMessage `json:"payload"`
+}
+
+// RelationshipRow is a stored relationship row. The evidence payload is the
+// JSON-serialized observation list as stored.
+type RelationshipRow struct {
+	ID       string          `json:"id"`
+	FromID   string          `json:"from_id"`
+	ToID     string          `json:"to_id"`
+	Type     string          `json:"type"`
+	Status   string          `json:"status"`
+	Evidence json.RawMessage `json:"evidence"`
+}
+
+// ListEvidenceFiltered lists evidence rows, optionally filtered by finding or
+// asset ID. Empty strings mean "no filter". Nil slices are returned as empty
+// slices so JSON output is [] rather than null.
+func (s *Store) ListEvidenceFiltered(findingID, assetID string) ([]EvidenceRow, error) {
+	q := `SELECT id, finding_id, asset_id, json_object('type', type, 'source', source,
+		'timestamp', timestamp, 'value', value, 'citation', citation) AS payload
+		FROM evidence`
+	args := make([]any, 0, 2)
+	var where []string
+	if findingID != "" {
+		where = append(where, "finding_id = ?")
+		args = append(args, findingID)
+	}
+	if assetID != "" {
+		where = append(where, "asset_id = ?")
+		args = append(args, assetID)
+	}
+	if len(where) > 0 {
+		q += " WHERE " + strings.Join(where, " AND ")
+	}
+	q += " ORDER BY id"
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, errs.Wrap(errs.CodeInternal, "storage.list_evidence", "query failed", err)
+	}
+	defer rows.Close()
+	out := make([]EvidenceRow, 0)
+	for rows.Next() {
+		var r EvidenceRow
+		if err := rows.Scan(&r.ID, &r.FindingID, &r.AssetID, &r.Payload); err != nil {
+			return nil, errs.Wrap(errs.CodeInternal, "storage.list_evidence", "scan failed", err)
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ListRelationships lists stored relationship rows.
+func (s *Store) ListRelationships() ([]RelationshipRow, error) {
+	rows, err := s.db.Query(`SELECT id, from_id, to_id, type, status, evidence
+		FROM relationships ORDER BY id`)
+	if err != nil {
+		return nil, errs.Wrap(errs.CodeInternal, "storage.list_relationships", "query failed", err)
+	}
+	defer rows.Close()
+	out := make([]RelationshipRow, 0)
+	for rows.Next() {
+		var r RelationshipRow
+		var ev string
+		if err := rows.Scan(&r.ID, &r.FromID, &r.ToID, &r.Type, &r.Status, &ev); err != nil {
+			return nil, errs.Wrap(errs.CodeInternal, "storage.list_relationships", "scan failed", err)
+		}
+		r.Evidence = json.RawMessage(ev)
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // marshal/unmarshal delegates to encoding/json via small wrappers so the

@@ -23,7 +23,7 @@ const (
 	// DefaultConfigPath is the default configuration file location.
 	DefaultConfigPath = "config.yaml"
 	// ToolVersion is the current RISKX version (spec §45).
-	ToolVersion = "0.1.0"
+	ToolVersion = "0.3.0"
 )
 
 // Config is the top-level RISKX configuration.
@@ -42,6 +42,12 @@ type Config struct {
 	AI AIConfig `yaml:"ai,omitempty"`
 	// Output controls default output behavior.
 	Output OutputConfig `yaml:"output,omitempty"`
+
+	// Serve controls the evidence-API server (roadmap P0).
+	Serve ServeConfig `yaml:"serve,omitempty"`
+
+	// LLM controls the optional LLM augmentation layer. OFF by default.
+	LLM LLMConfig `yaml:"llm,omitempty"`
 }
 
 // Target is a configured scan target with optional scope notes.
@@ -81,6 +87,28 @@ type OutputConfig struct {
 	JSON bool `yaml:"json,omitempty"`
 }
 
+// ServeConfig holds the evidence-API server defaults. The API key is never
+// stored in the config by default: operators set RISKX_API_KEY in their
+// environment (user-supplied, never committed). An explicit serve.api_key
+// config value is supported for air-gapped setups.
+type ServeConfig struct {
+	Listen string `yaml:"listen,omitempty"`
+	APIKey string `yaml:"api_key,omitempty"`
+}
+
+// LLMConfig is the optional LLM layer. It is OFF by default (spec §46, §47):
+// the tool is fully functional without it. The API key is user-supplied
+// (RISKX_LLM_API_KEY env or llm.api_key in config) and never embedded in the
+// binary or stored anywhere by RISKX. The LLM is used for optional
+// explanatory augmentation only; no finding severity, classification, or
+// remediation is ever derived from the LLM alone (no guessing, spec §15).
+type LLMConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	APIKey  string `yaml:"api_key,omitempty"`
+	Model   string `yaml:"model,omitempty"`
+	BaseURL string `yaml:"base_url,omitempty"`
+}
+
 // Default returns the secure default configuration.
 func Default() *Config {
 	return &Config{
@@ -93,6 +121,8 @@ func Default() *Config {
 		Risk:   RiskConfig{},
 		AI:     AIConfig{Enabled: false},
 		Output: OutputConfig{},
+		Serve:  ServeConfig{},
+		LLM:    LLMConfig{Enabled: false},
 	}
 }
 
@@ -138,6 +168,11 @@ func (c *Config) validate() error {
 			return errs.Input("config.validate", "empty target value in config",
 				"remove empty entries from targets")
 		}
+	}
+	if c.LLM.Enabled && strings.TrimSpace(c.LLM.APIKey) == "" {
+		return errs.Input("config.validate",
+			"llm.enabled=true but no API key configured",
+			"set RISKX_LLM_API_KEY or llm.api_key before enabling the LLM layer")
 	}
 	return nil
 }
