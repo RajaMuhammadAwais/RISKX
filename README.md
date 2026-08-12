@@ -35,6 +35,20 @@ RISKX is a command-line tool for **continuous threat-exposure management (CTEM)*
 
 It follows the [CISA CTEM lifecycle](https://www.cisa.gov/continuous-threat-exposure-management) — **Discover → Prioritize → Remediate → Validate** — and is grounded exclusively in verified primary sources: [CISA](https://www.cisa.gov/known-exploited-vulnerabilities-catalog), [NIST NVD](https://nvd.nist.gov/developers/vulnerabilities), [FIRST](https://api.first.org/data/v1/epss), [MITRE](https://attack.mitre.org/), [OWASP](https://owasp.org/Top10/), and [OSV](https://osv.dev/).
 
+## Demo
+
+Full end-to-end walkthrough of every RISKX feature (`init` → `doctor` → `config` → `discover --delta` → `assets` → `vuln` → `prioritize` → `risk` → `delta` → `export` (SARIF / CSV / JSONL) → `report` → `graph` → `explain` → `attack-path` → `policy` → `validate` → `feed` → `cloud` → `serve` → `mcp` → `continuous` → `scan`), captured live against a real build of v0.4.0.
+
+<div align="center">
+
+<video width="960" controls src="https://github.com/RajaMuhammadAwais/RISKX/releases/download/v0.4.0/RISKX_full_features_demo.mp4"></video>
+
+*Terminal recording — real RISKX v0.4.0 output, evidence-backed findings, no simulated data. Source: [`RISKX_full_features_demo.mp4`](https://github.com/RajaMuhammadAwais/RISKX/releases/download/v0.4.0/RISKX_full_features_demo.mp4) (released with [v0.4.0](https://github.com/RajaMuhammadAwais/RISKX/releases/tag/v0.4.0)).*
+
+</div>
+
+---
+
 > **THE NO-GUESSING RULE.** Facts, inferences, and recommendations are separated in the data model. Detection without evidence is reported as `insufficient` confidence — never a fabricated finding. Inferred edges and findings are explicitly labeled and never presented as confirmed. Stale feeds are marked `STALE`, never silently dropped. Feed failures raise explicit errors, never "no data".
 
 This is a **non-commercial tool**: see [`NON_COMMERCIAL.md`](NON_COMMERCIAL.md) and the [`LICENSE`](LICENSE) (CC BY-NC-ND 4.0). You are free to use, build, and share it for research, education, and personal defense — commercial use requires a separate license from the author.
