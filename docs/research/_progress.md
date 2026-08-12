@@ -136,3 +136,40 @@ REMAINING (Phase 10 + delivery):
 3. go version test: tests/fixtures present (kev.csv). git add -A; first commit "initial implementation: core CLI, discovery, vulnerability intelligence, risk engine, attack graph"; push to RajaMuhammadAwais/RISKX.
 4. Deliver final message with summary.
 Shell one-liner for env: export PATH=$PATH:/usr/local/go/bin:/home/ubuntu/go/bin
+
+## V0.2 REQUEST (2026-08-12, after v0.1 delivery)
+User: "continue next version research based also add cicd etc". v0.1 (commit c60027e) pushed to RajaMuhammadAwais/RISKX with Phases 1-5 + todo Q items partially done (README done; CI workflow Q.2 NOT done; benchmarks.md Q.4 NOT done; Q.5 NOT done).
+
+V0.2 scope decided (spec/roadmap-consistent):
+1. Phase 6 reporting/export: riskx report summary (real findings from storage + vuln/risk data), JSONL+CSV export (6.2), --suppress/exception support (6.4). SARIF: primary-source verify SARIF 2.1.0 schema + evaluation, implement exporter plugin stub if verified.
+2. Storage persistence (2.6/6 integration): SQLite asset+finding store via internal/storage/storage.go (already has DB scaffold? check internal/storage/storage.go) — wire discover/vuln/risk to store.
+3. CI/CD: GitHub Actions workflows — go test -race, go vet, staticcheck, golangci-lint (pin go version per .golangci.yml), dependency-audit (govulncheck), release build matrix (linux/amd64, darwin/amd64, windows/amd64), go mod tidy check.
+4. Phase 7 start (AWS candidate per ADR-0007): passive AWS asset discovery — no-credential enumeration is not possible; implement cloud discovery framework with AWS STS whoami / AWS resource listing via readonly IAM (access key env vars) gated by mode; defer heavy bits, mark scope.
+5. Validate command: real safe validation workflow (DNS record check, TLS cert check, HTTP probe) with plan print + authorization.
+6. Benchmarks.md (Q.4) with recorded results.
+7. Update research docs + README version, tag v0.2.0, push.
+
+Existing key facts: repo at /home/ubuntu/RISKX, go at /usr/local/go/bin (1.26), env: export PATH=$PATH:/usr/local/go/bin:/home/ubuntu/go/bin. Tests: CGO_ENABLED=1 go test ./... -race -count=1. staticcheck in ~/go/bin. KEV embed: internal/vulnerability/ingest/kev_snapshot.csv. Feed skip env: RISKX_SKIP_FEEDS.
+cmd_analysis.go report/export/policy/validate currently stubs (report summary returns JSON stub; export jsonl/csv stubs; policy check stub w/ fFile; validate has mode+auth wiring already using safe actions).
+internal/storage/storage.go exists (SQLite assets/findings/evidence, 0600). Must check its API before wiring.
+
+## V0.2 RESEARCH + PLAN (2026-08-12)
+RESEARCH DONE (all verified against primary sources, see docs/research/v0.2-reporting-cicd-cloud.md):
+- SARIF 2.1.0 = OASIS Standard + Errata 01 (2023-08-28). Spec + errata01 schema downloaded to docs/research/schemas/sarif-schema-2.1.0.json (official). version string "2.1.0"; log{version,runs[]}; run{tool{driver{name}},results[]}; result{ruleId,level("none"|"note"|"warning"|"error"),message{text}}; properties extension point valid; region requires startLine/charOffset/byteOffset. Errata #481: runs must not be null.
+- CI versions verified: actions/checkout@v6, setup-go@v7 (go-version-file), golangci/golangci-lint-action@v9 (needs golangci-lint v2.x; pin version: v2.1.6), staticcheck-action@v1 (install-go:false), golang/govulncheck-action@v1.
+- AWS APIs verified from docs.aws.amazon.com: STS GetCallerIdentity (POST form Action+Version=2011-06-15, host sts.amazonaws.com, no perms needed, XML Arn/UserId/Account); EC2 DescribeInstances (GET, ec2.{region}.amazonaws.com, Version=2016-11-15, MaxResults+NextToken pagination recommended); S3 ListBuckets (GET https://s3.amazonaws.com/, s3:ListAllMyBuckets, XML Name/CreationDate/BucketRegion/BucketArn); IAM ListUsers (GET https://iam.amazonaws.com/?Action=ListUsers&Version=2010-05-08, IsTruncated/Marker pagination MaxItems default 100 max 1000). All query APIs → SigV4 with empty payload.
+DECISIONS: minimal dependency-free SigV4 (empty payload, signed headers host;x-amz-date); creds env-only AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION (default us-east-1), never profiles/shared creds; `riskx cloud aws whoami|instances|buckets|identities|all`; mode safe+ required; creds redacted.
+IMPLEMENTATION PLAN in docs/research/_v02_plan.md (full detail incl. SigV4 test vectors + model API facts). ADR-0008.md written (storage wiring). todo.md updated (Phases 2-5 marked complete; v0.2 items added).
+NEXT: implement in this order: (1) internal/reporting (summary/jsonl/csv/sarif + tests w/ schema validation), (2) storage.go ListEvidence add + cmd wiring (helpers.go openStore, cmd_discovery.go discover/vuln/risk/assets, cmd_analysis.go report summary/export/validate), (3) internal/validate (DNS/TLS/HTTP read-only checks), (4) internal/cloud/aws (SigV4 + query client + fixtures), (5) CI workflows + .golangci.yml, (6) benchmarks.md + README update, (7) test/lint/bench/commit/push tag v0.2.0.
+Note: reporting pkg currently empty dir. cloud pkg empty dir. storage schemaVersion "storage-v1".
+
+## V0.2 IMPLEMENTATION COMPLETE (2026-08-12)
+All 15 test packages pass with race detector (added internal/storage regression suite: permissions, schema version, assets/findings/riskscores roundtrip, count). Staticcheck ./... clean.
+Bugs fixed during smoke test: (1) storeClose() called BEFORE use in discover/vuln/validate persistence blocks — moved AFTER use. (2) findings SQL column "references" clashes with SQLite reserved keyword — renamed to "refs" in schema + PutFindings + ListFindings. (3) ListAssets/ListFindings scanned TEXT time cols into time.Time — fixed with sql.NullString + RFC3339 parse. (4) dnsResult auto-passed empty records for existence checks — fixed: empty records never pass. (5) staticcheck: validate self-assignment removed; unused futureSections → populated in Summary.Counts; staticResolver wired via Resolver.static/LookupTable + lookupStatic(ctx) — used by new TestVerifyDNSStaticResolver.
+v0.2 feature set shipped:
+- internal/reporting: summary JSON (w/ future_sections listing deferred report sections), JSONL, CSV (RFC 4180), SARIF 2.1.0 exporter (validated against official OASIS errata01 schema in tests).
+- CLI: riskx report summary; riskx export jsonl|csv|sarif --data; riskx cloud discover (whoami/instances/buckets/identities/all, SigV4 cross-verified vs botocore reference signer); riskx validate (real DNS/TLS/HTTP checks w/ authorization gating).
+- Persistence: discover/vuln/risk/validate/cloud write to SQLite (--data/RISKX_DATA); assets list reads store; risk falls back to documented demo input when no store.
+- CI: .github/workflows/{ci,lint,staticcheck,vuln}.yml (Go 1.25, setup-go@v7, golangci-lint-action@v9 v2.1.6, staticcheck-action@v1, govulncheck-action@v1). go.mod=1.25.0 (modernc.org/libc requires 1.25).
+- E2E verified: discover github.com → 14 assets; vuln CVE-2021-44228 CVE-2024-3094 → 2 critical findings persisted; risk score max 20; report summary counts match; SARIF export validates (2 results).
+REMAINING: benchmarks.md update, README update (v0.2.0 + CI table), commit+push v0.2.0, tag v0.2.0, deliver.

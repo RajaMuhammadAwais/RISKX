@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS findings (
 	validation TEXT NOT NULL,
 	classification TEXT NOT NULL,
 	remediation TEXT,
-	references TEXT NOT NULL,
+	refs TEXT NOT NULL,
 	created_at TEXT NOT NULL,
 	schema_version TEXT NOT NULL
 );
@@ -167,7 +167,7 @@ func (s *Store) PutAssets(assets []models.Asset) (int, error) {
 func (s *Store) PutFindings(findings []models.Finding) error {
 	stmt, err := s.db.Prepare(`INSERT INTO findings (id, asset_id, asset_value, title, description,
 		observation, severity, confidence, status, validation, classification, remediation,
-		references, created_at, schema_version)
+		refs, created_at, schema_version)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(id) DO NOTHING`)
 	if err != nil {
@@ -255,13 +255,24 @@ func (s *Store) ListAssets() ([]models.Asset, error) {
 	for rows.Next() {
 		var a models.Asset
 		var prov, fp, schema string
+		var firstSeen, lastSeen sql.NullString
 		if err := rows.Scan(&a.ID, &a.Kind, &a.Value, &a.Host, &a.Port, &a.Protocol, &a.Exposure,
-			&a.Criticality, &a.FirstSeen, &a.LastSeen, &prov, &fp, &schema); err != nil {
+			&a.Criticality, &firstSeen, &lastSeen, &prov, &fp, &schema); err != nil {
 			return nil, errs.Wrap(errs.CodeInternal, "storage.list_assets", "scan failed", err)
 		}
 		_ = jsonDecode(prov, &a.Provenance)
 		_ = jsonDecode(fp, &a.Fingerprint)
 		a.Schema = schema
+		if firstSeen.Valid {
+			if t, err := time.Parse(time.RFC3339, firstSeen.String); err == nil {
+				a.FirstSeen = t
+			}
+		}
+		if lastSeen.Valid {
+			if t, err := time.Parse(time.RFC3339, lastSeen.String); err == nil {
+				a.LastSeen = t
+			}
+		}
 		out = append(out, a)
 	}
 	return out, rows.Err()
@@ -270,7 +281,7 @@ func (s *Store) ListAssets() ([]models.Asset, error) {
 // ListFindings returns stored findings.
 func (s *Store) ListFindings() ([]models.Finding, error) {
 	rows, err := s.db.Query(`SELECT id, asset_id, asset_value, title, description, observation,
-		severity, confidence, status, validation, classification, remediation, references,
+		severity, confidence, status, validation, classification, remediation, refs,
 		created_at, schema_version FROM findings ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, errs.Wrap(errs.CodeInternal, "storage.list_findings", "query failed", err)
@@ -279,11 +290,16 @@ func (s *Store) ListFindings() ([]models.Finding, error) {
 	var out []models.Finding
 	for rows.Next() {
 		var f models.Finding
-		var cls, rem, refs, schema string
+		var cls, rem, refs, schema, created string
 		if err := rows.Scan(&f.ID, &f.AssetID, &f.AssetValue, &f.Title, &f.Description,
 			&f.Observation, &f.Severity, &f.Confidence, &f.Status, &f.Validation,
-			&cls, &rem, &refs, &f.CreatedAt, &schema); err != nil {
+			&cls, &rem, &refs, &created, &schema); err != nil {
 			return nil, errs.Wrap(errs.CodeInternal, "storage.list_findings", "scan failed", err)
+		}
+		_ = jsonDecode(cls, &f.Classification)
+		_ = jsonDecode(refs, &f.References)
+		if t, err := time.Parse(time.RFC3339, created); err == nil {
+			f.CreatedAt = t
 		}
 		_ = jsonDecode(cls, &f.Classification)
 		_ = jsonDecode(refs, &f.References)

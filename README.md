@@ -16,11 +16,15 @@ The design follows the [CISA Continuous Threat Exposure Management (CTEM)](https
 | Attack-path analysis (`graph-v1`) | `riskx attack-path top`, `riskx graph` | BFS enumeration + weighted Dijkstra ranking + centrality; edge statuses Observed/Inferred/Potential/Validated gate reports |
 | Policy evaluation with CLI exit codes (0/1/2) | `riskx policy check`, `riskx doctor` | YAML policy; built-in default policy |
 | Security operating modes | `riskx scan` (passive/reporting/enforced) | Mode authorizer: no action runs without explicit approval; plan printed first |
-| Canonical JSON output with scan metadata, attribution, and feed status | `--json` on all commands | Every output carries schema versions, timestamps, and data-source citations |
+| Executive risk report over the evidence store | `riskx report summary` | Stored assets/findings/scores; missing sections listed as deferred, never fabricated |
+| Findings export (JSONL, CSV, SARIF 2.1.0) | `riskx export jsonl\|csv\|sarif --data` | SARIF validated against the official OASIS Standard + Errata 01 schema |
+| Safe read-only validation (DNS, TLS, HTTP) | `riskx validate` | Real network observations; failures are recorded as evidence, never silent |
+| AWS cloud discovery (read-only STS/EC2/S3/IAM) | `riskx cloud discover` | SigV4-signed query APIs, cross-verified against the AWS SDK signer |
+| Evidence store persistence (SQLite, 0600) | `--data` / `RISKX_DATA` on all commands | storage-v1 schema; content-addressed, idempotent writes |
 
 ## Quick start
 
-Build from source (requires Go 1.24+):
+Build from source (requires Go 1.25+):
 
 ```bash
 go build -o riskx ./cmd/riskx
@@ -44,6 +48,30 @@ Rank attack paths from internet-exposed entry points to critical assets:
 ```bash
 ./riskx attack-path top 5 --mode evidence_backed
 ./riskx graph centrality
+```
+
+Persist findings to the local evidence store and produce an executive report:
+
+```bash
+./riskx discover example.com --data ./riskx.db
+./riskx vuln CVE-2021-44228 --data ./riskx.db
+./riskx risk --data ./riskx.db
+./riskx report summary --data ./riskx.db
+./riskx export sarif --data ./riskx.db > riskx.sarif
+```
+
+Validate a target safely (read-only checks, no active exploitation):
+
+```bash
+./riskx validate dns example.com
+./riskx validate tls example.com
+./riskx validate http https://example.com
+```
+
+Discover AWS assets with read-only IAM credentials (SigV4, query APIs only):
+
+```bash
+./riskx cloud discover all   # requires AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY
 ```
 
 ## Evidence model
@@ -94,7 +122,8 @@ pkg/models/                canonical versioned data model
 pkg/plugins/               plugin interfaces and registry
 docs/research/             13 research documents with source tiers
 docs/architecture/         architecture-v1
-docs/adr/                  7 architecture decision records
+docs/adr/                  9 architecture decision records (ADR-0008 storage wiring, ADR-0009 CI pinning)
+.github/workflows/     CI/CD: test, lint, staticcheck, govulncheck
 tests/fixtures/            verified feed snapshots (KEV 2026-08-12)
 ```
 
@@ -105,9 +134,22 @@ go build ./...          # compile everything
 go vet ./...            # static analysis
 go test ./... -short    # unit + fixture tests (live feeds skipped)
 go test ./...           # includes live feed integration tests
-CGO_ENABLED=1 go test ./... -race   # race detector (requires gcc)
+go test ./... -race     # race detector (pure-Go SQLite driver; no gcc needed)
 go test -bench=. -run=^$ ./internal/risk ./internal/vulnerability/ingest
 ```
+
+## CI/CD
+
+GitHub Actions run on every push and pull request (see `.github/workflows/`). Action versions are pinned and were verified against the upstream repositories on 2026-08-12:
+
+| Workflow | Checks | Pinned action versions |
+|---|---|---|
+| `ci.yml` | build + `go test -race` (linux/darwin/windows), `go vet`, `go mod tidy -diff` | actions/setup-go@v7 |
+| `lint.yml` | golangci-lint v2.1.6 (`errcheck`, `govet`, `ineffassign`, `staticcheck`, `unparam`, `unused`, `whitespace`) | golangci/golangci-lint-action@v9 |
+| `staticcheck.yml` | honnef staticcheck over the whole module | dominikh/staticcheck-action@v1 |
+| `vuln.yml` | `govulncheck` dependency vulnerability scan | golang/govulncheck-action@v1 |
+
+Measured performance and the quality-gate matrix are recorded in [`docs/research/benchmarks.md`](docs/research/benchmarks.md).
 
 ## License
 

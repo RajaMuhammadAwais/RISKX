@@ -104,6 +104,16 @@ var (
 		Accessed:     "2026-08-12",
 		Version:      "v19.2",
 	}
+	// AWSCloudDiscovery is the cited source for AWS read-only asset discovery.
+	// Each discovery call consults the corresponding AWS API Reference pages
+	// (STS GetCallerIdentity, EC2 DescribeInstances, S3 ListBuckets, IAM
+	// ListUsers) at the URL below; specific action pages are cited per call.
+	AWSCloudDiscovery = Source{
+		Organization: "AWS",
+		Document:     "AWS API Reference (STS/EC2/S3/IAM Query APIs)",
+		URL:          "https://docs.aws.amazon.com/",
+		Accessed:     "2026-08-12",
+	}
 )
 
 // Set accumulates evidence items with optional source citations.
