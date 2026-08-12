@@ -1,14 +1,16 @@
 <div align="center">
 
 ```
- ____            _
-|  _ \ _____   _(_)_ __ ___   ___  ___
-| |_) / _ \ \ / / | '_ ` _ \ / _ \/ __|
-|  _ < (_) \ V /| | | | | | |  __/\__ \
-|_| \_\___/ \_/ |_|_| |_| |_|\___||___/
+╔══════════════════════════════════════════════════╗
+║  RRRR   IIIII  SSSSS   K      XXX   XXX         ║
+║  R   R    I   SS       K     XXX   XXX          ║
+║  RRRR     I    SSSS    K     XXX XXX            ║
+║  R  R     I       SS   K      XXXXX             ║
+║  R   R    I   SSSSS   K     XXX XXX             ║
+╚══════════════════════════════════════════════════╝
 ```
 
-# RISKX
+### RISKX
 
 ### Enterprise Cyber-Risk CLI — Research-First. Evidence-Backed. No Guessing.
 
