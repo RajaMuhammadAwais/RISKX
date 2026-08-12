@@ -107,7 +107,7 @@ RISKX is written in pure Go with a pure-Go SQLite driver (no CGo), so the same b
 
 ## Installation
 
-**No Go toolchain required.** The recommended installation pulls the pre-built binary for your OS and CPU architecture directly from the official [GitHub Releases](https://github.com/RajaMuhammadAwais/RISKX/releases) — the installer never clones the repository, downloads only one binary plus its checksums file, verifies the **SHA-256 checksum** before installing, and installs into a user-writable directory (`~/.local/bin` on Linux/macOS, `%USERPROFILE%\.local\bin` on Windows). No `sudo`, no admin rights required.
+**No Go toolchain required.** The recommended installation pulls the pre-built binary for your OS and CPU architecture directly from the official [GitHub Releases](https://github.com/RajaMuhammadAwais/RISKX/releases) — the installer never clones the repository, downloads only one binary plus its checksums file, verifies the **SHA-256 checksum** before installing, and installs into a user-writable directory (`~/.local/bin` on Linux/macOS, `%USERPROFILE%\.local\bin` on Windows; created automatically if it does not exist). No `sudo`, no admin rights required.
 
 ### Method 1 — One-command installer (recommended)
 
