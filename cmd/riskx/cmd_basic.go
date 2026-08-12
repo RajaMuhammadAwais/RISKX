@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/RajaMuhammadAwais/RISKX/internal/core/buildinfo"
 	"github.com/RajaMuhammadAwais/RISKX/internal/core/config"
 )
 
@@ -20,7 +21,23 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print RISKX version and model versions",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("RISKX %s\n", config.ToolVersion)
+			// Release builds inject buildinfo.Version via -ldflags; source
+			// builds keep it empty and fall back to the in-source constant.
+			// Empty fields print nothing — never "unknown" placeholders.
+			ver := buildinfo.Version
+			if ver == "" {
+				ver = config.ToolVersion
+			}
+			fmt.Printf("RISKX %s\n", ver)
+			if buildinfo.Commit != "" {
+				fmt.Printf("commit: %s\n", buildinfo.Commit)
+			}
+			if buildinfo.BuildDate != "" {
+				fmt.Printf("built: %s\n", buildinfo.BuildDate)
+			}
+			if buildinfo.Platform != "" {
+				fmt.Printf("platform: %s\n", buildinfo.Platform)
+			}
 			fmt.Println("Risk model: risk-v1")
 			// Deterministic ordering: map iteration order is random in Go.
 			for _, s := range [3][2]string{{"asset", "asset-v1"}, {"finding", "finding-v1"}, {"evidence", "evidence-v1"}} {

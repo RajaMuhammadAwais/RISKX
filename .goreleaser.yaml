@@ -1,0 +1,47 @@
+# GoReleaser configuration for RISKX releases.
+#
+# Triggered by the release workflow when a version tag (v*) is pushed.
+# Builds the CLI at cmd/riskx for all supported platforms, injects version
+# metadata via Go linker flags, and uploads binaries + checksums to the
+# GitHub Release.
+version: 2
+
+project_name: RISKX
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: riskx
+    main: ./cmd/riskx
+    binary: riskx_{{ .Os }}_{{ .Arch }}{{ if eq .Os "windows" }}.exe{{ end }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/RajaMuhammadAwais/RISKX/internal/core/buildinfo.Version={{ .Version }}
+      - -X github.com/RajaMuhammadAwais/RISKX/internal/core/buildinfo.Commit={{ .ShortCommit }}
+      - -X github.com/RajaMuhammadAwais/RISKX/internal/core/buildinfo.BuildDate={{ .Date }}
+      - -X github.com/RajaMuhammadAwais/RISKX/internal/core/buildinfo.Platform={{ .Os }}/{{ .Arch }}
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  # Publish plain binaries (not tarballs) to match the documented asset names:
+  #   riskx_linux_amd64, riskx_windows_amd64.exe, ...
+  - id: binaries
+    formats: [binary]
+    allow_different_binary_count: true
+    name_template: "riskx_{{ .Os }}_{{ .Arch }}{{ if eq .Os \"windows\" }}.exe{{ end }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  prerelease: auto

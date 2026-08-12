@@ -107,15 +107,61 @@ RISKX is written in pure Go with a pure-Go SQLite driver (no CGo), so the same b
 
 ## Installation
 
-### Prerequisites (all platforms)
+**No Go toolchain required.** The recommended installation pulls the pre-built binary for your OS and CPU architecture directly from the official [GitHub Releases](https://github.com/RajaMuhammadAwais/RISKX/releases) — the installer never clones the repository, downloads only one binary plus its checksums file, verifies the **SHA-256 checksum** before installing, and installs into a user-writable directory (`~/.local/bin` on Linux/macOS, `%USERPROFILE%\.local\bin` on Windows). No `sudo`, no admin rights required.
 
-Go **1.25 or newer** is required. Check your version:
+### Method 1 — One-command installer (recommended)
+
+**Linux / macOS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RajaMuhammadAwais/RISKX/main/install.sh | sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/RajaMuhammadAwais/RISKX/main/install.ps1 | iex
+```
+
+The installer detects your OS and CPU architecture, resolves the **latest stable release** (prereleases are never installed automatically), downloads the matching binary from the official GitHub Release, verifies its SHA-256 checksum against the release's `checksums.txt` (on failure the file is deleted and nothing is installed), and places it in your user bin directory. If that directory is not on your `PATH`, the installer prints the exact command to add it.
+
+**Install a specific release:**
+
+```bash
+RISKX_VERSION=v0.4.0 curl -fsSL https://raw.githubusercontent.com/RajaMuhammadAwais/RISKX/main/install.sh | sh   # Linux / macOS
+$env:RISKX_VERSION="v0.4.0"; irm https://raw.githubusercontent.com/RajaMuhammadAwais/RISKX/main/install.ps1 | iex   # Windows
+```
+
+**Override the install directory** (either platform):
+
+```bash
+RISKX_BIN_DIR=/opt/riskx/bin curl -fsSL https://raw.githubusercontent.com/RajaMuhammadAwais/RISKX/main/install.sh | sh   # Linux / macOS
+$env:RISKX_BIN_DIR="C:\Tools\RISKX"; irm https://raw.githubusercontent.com/RajaMuhammadAwais/RISKX/main/install.ps1 | iex   # Windows
+```
+
+**What the installer does — and does not do:** it resolves a release, downloads exactly two files (the binary and `checksums.txt`) over HTTPS, verifies the SHA-256 checksum, copies the verified binary to the user bin directory, and prints the installed version. It never clones the repository, downloads unrelated files, modifies unrelated user files, installs persistence, creates services or scheduled tasks, touches firewall rules, or collects telemetry. A checksum failure deletes the downloaded file and exits with a clear error — an unverified binary is never silently installed.
+
+### Method 2 — Manual download from GitHub Releases
+
+Download the binary that matches your platform from [Releases](https://github.com/RajaMuhammadAwais/RISKX/releases) alongside `checksums.txt`, verify it, then install:
+
+```bash
+# Linux example (adjust OS/arch to match your platform)
+wget https://github.com/RajaMuhammadAwais/RISKX/releases/download/v0.4.0/riskx_linux_amd64
+wget https://github.com/RajaMuhammadAwais/RISKX/releases/download/v0.4.0/checksums.txt
+sha256sum -c <(grep riskx_linux_amd64 checksums.txt)
+chmod +x riskx_linux_amd64 && mv riskx_linux_amd64 ~/.local/bin/riskx
+```
+
+### Method 3 — Go install (source build)
+
+Go **1.25 or newer** is required. The binary is built from source and lands in `$(go env GOPATH)/bin` (default `~/go/bin`):
 
 ```bash
 go version
 ```
 
-**Ubuntu / Debian (latest versions):**
+**Install Go if not present** (Ubuntu / Debian, latest versions):
 
 ```bash
 # Install Go 1.25+ if not present
@@ -154,7 +200,13 @@ scoop install go
 go version
 ```
 
-### Method 1 — Build from source (recommended)
+Then build from source or use `go install`:
+
+```bash
+go install github.com/RajaMuhammadAwais/RISKX/cmd/riskx@latest
+```
+
+### Method 4 — Build from source
 
 ```bash
 git clone https://github.com/RajaMuhammadAwais/RISKX.git
@@ -166,21 +218,28 @@ sudo mv riskx /usr/local/bin/    # Linux / macOS
 # or on Windows, move riskx.exe anywhere on %PATH%
 ```
 
-### Method 2 — Go install
-
-```bash
-go install github.com/RajaMuhammadAwais/RISKX/cmd/riskx@v0.2.1
-```
-
-The binary lands in `$(go env GOPATH)/bin` (default `~/go/bin`).
-
-### Method 3 — Cross-compile for another OS
+Cross-compiling for another OS works identically:
 
 ```bash
 GOOS=windows GOARCH=amd64 go build -o riskx.exe ./cmd/riskx
 GOOS=darwin  GOARCH=arm64 go build -o riskx ./cmd/riskx
 GOOS=linux   GOARCH=arm64 go build -o riskx ./cmd/riskx
 ```
+
+### Supported platforms
+
+Each release publishes these pre-built binaries:
+
+| Asset name | Platform |
+| --- | --- |
+| `riskx_linux_amd64` | Linux amd64 |
+| `riskx_linux_arm64` | Linux arm64 |
+| `riskx_darwin_amd64` | macOS amd64 (Intel) |
+| `riskx_darwin_arm64` | macOS arm64 (Apple Silicon) |
+| `riskx_windows_amd64.exe` | Windows amd64 |
+| `riskx_windows_arm64.exe` | Windows arm64 |
+
+Every release also ships `checksums.txt` with SHA-256 hashes for all assets. Release binaries inject version, commit, build date, and platform via Go linker flags — visible in the version output.
 
 ### Quick verification
 
