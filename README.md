@@ -14,7 +14,7 @@
 
 **Powered by [RAJA MUHAMMAD AWAIS](https://github.com/RajaMuhammadAwais) — Cyber Security Researcher**
 
-[![Release](https://img.shields.io/github/v/tag/RajaMuhammadAwais/RISKX?label=release&sort=semver&color=blue)](https://github.com/RajaMuhammadAwais/RISKX/releases/tag/v0.2.0)
+[![Release](https://img.shields.io/github/v/tag/RajaMuhammadAwais/RISKX?label=release&sort=semver&color=blue)](https://github.com/RajaMuhammadAwais/RISKX/releases/tag/v0.2.1)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 [![Go](https://img.shields.io/badge/go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/RajaMuhammadAwais/RISKX)](https://goreportcard.com/report/github.com/RajaMuhammadAwais/RISKX)
@@ -131,7 +131,7 @@ sudo mv riskx /usr/local/bin/    # Linux / macOS
 ### Method 2 — Go install
 
 ```bash
-go install github.com/RajaMuhammadAwais/RISKX/cmd/riskx@v0.2.0
+go install github.com/RajaMuhammadAwais/RISKX/cmd/riskx@v0.2.1
 ```
 
 The binary lands in `$(go env GOPATH)/bin` (default `~/go/bin`).
