@@ -1,0 +1,8 @@
+# RISKX gitignore
+riskx
+*.exe
+*.db
+*.sqlite
+tests/output/
+testdata/
+dist/

@@ -1,0 +1,106 @@
+# RISKX Master TODO
+
+**Date:** 2026-08-12
+**Basis:** RISKX specification §§0-52, Phase 0 research deliverables, architecture-v1.md, ADR-0001..0007.
+**Method:** Each item carries a status, and progress is tracked in `docs/research/_progress.md`. Implementation follows the spec's loop (RESEARCH → ... → IMPLEMENT → TEST → DOCUMENT → VERIFY) and the Definition of Done (§43) per feature.
+
+## Phase 0 — Research (complete)
+
+- [x] docs/research/README.md
+- [x] docs/research/research-index.md
+- [x] docs/research/ctem.md
+- [x] docs/research/vulnerability-intelligence.md
+- [x] docs/research/attack-path-analysis.md
+- [x] docs/research/risk-model.md
+- [x] docs/research/standards.md
+- [x] docs/research/ai-agent-security.md
+- [x] docs/research/mcp-security.md
+- [x] docs/research/cloud-security.md
+- [x] docs/research/competitive-analysis.md
+- [x] docs/research/technology-evaluation.md
+- [x] docs/research/threat-model.md
+- [x] docs/architecture/architecture-v1.md
+- [x] docs/adr/ADR-0001..0007
+- [x] MVP scope / non-MVP scope / tech decisions / security assumptions / known limitations / research gaps (in architecture-v1.md and research docs)
+- [x] Repository initialized (private), Go module, LICENSE, SECURITY.md
+
+## Phase 1 — Core CLI
+
+- [x] 1.1 `go get` pinned dependencies: spf13/cobra (+pflag), pure-Go SQLite driver (modernc.org/sqlite preferred per ADR-0003)
+- [x] 1.2 `pkg/models`: canonical types with versions asset-v1 / finding-v1 / evidence-v1 (Asset supertype + kinds; Host/IP/Domain/Service/Vulnerability/Finding/AttackPath/Risk/Evidence/Policy/Remediation/Identity/Agent/MCPServer/MCPTool/Relationship with status Observed|Inferred|Potential|Validated; Suppression)
+- [x] 1.3 `internal/evidence`: evidence model + source metadata (organization/document/url/accessed/version per §44); confidence typing
+- [x] 1.4 `internal/core/config`: YAML config loading, 0600 writes, path-traversal protection
+- [x] 1.5 `internal/core/log`: structured logger with secret redaction; secure error types (`internal/core/errs`)
+- [x] 1.6 `internal/core/mode`: security modes PASSIVE|SAFE|ACTIVE|VALIDATION with gating helpers and explicit-authorization flow for VALIDATION
+- [x] 1.7 `internal/core/output`: output engine — human table + `--json`; JSON metadata with model versions + NVD attribution when applicable
+- [x] 1.8 `internal/core/idgen`: stable content-addressed IDs (finding RISKX-..., asset, evidence)
+- [x] 1.9 `pkg/plugins`: plugin interfaces (Discovery/Asset/Vulnerability/Cloud/Identity/Agent/MCP/Risk/Reporter/ExporterPlugin) + registry + capability/permission model per ADR-0006
+- [x] 1.10 `internal/policy`: policy engine — YAML policy files (thresholds, KEV fail, internet-exposed-admin fail), policy evaluation returning structured result; `--ci` exit codes 0/1/2 documented
+- [x] 1.11 `cmd/riskx`: root + global flags (--help/--version/--output/--config/--quiet/--verbose/--json/--ci) and command scaffolds for init/version/config/doctor/discover/assets/scan/vuln/cloud/identity/ai/agent/mcp/graph/attack-path/risk/report/export/policy/validate/continuous
+- [x] 1.12 `internal/core/runner`: command runner tying mode + policy + output + exit codes
+- [x] 1.13 Phase 1 tests: unit (models, config, policy, modes), negative cases (malformed config, invalid targets), fixtures, race detector pass
+- [x] 1.14 Code quality: gofmt/go vet/staticcheck/golangci-lint clean; no ignored errors; no banned patterns per §24
+
+## Phase 2 — Asset Discovery
+
+- [ ] 2.1 DNS discovery: system resolver + record types (A/AAAA/CNAME/MX/NS/TXT), PTR/rDNS, dedup, provenance JSON per asset
+- [ ] 2.2 HTTP discovery: HEAD/GET with timeouts, banner capture, status/headers fingerprinting, robots detection of tech hints
+- [ ] 2.3 TLS discovery: certificate parsing (SANs, issuer, validity, chain), weak-config hints (expired/self-signed/short-key)
+- [ ] 2.4 RDAP/WHOIS (RDAP only — data.rdap.org verified source; classic WHOIS deferred), domain registration evidence
+- [ ] 2.5 Basic network discovery: TCP connect probe with timeouts on configured port lists (connect-only, no SYN crafting)
+- [ ] 2.6 Asset normalization + inventory: supertype classification, stable IDs, dedup, SQLite persistence (storage-v1, 0600 DB file)
+- [ ] 2.7 `riskx discover` command wiring (single target, list of targets, file input with validation)
+- [ ] 2.8 Phase 2 tests: unit + integration with fixtures (recorded DNS/TLS/HTTP responses), network-failure cases, duplicate-asset cases, malformed-input cases; golden tests for asset JSON
+
+## Phase 3 — Vulnerability Intelligence
+
+- [ ] 3.1 KEV ingestion: CSV parse with schema validation, live fetch + caching + staleness flags, `tests/fixtures/kev.csv` regression fixture
+- [ ] 3.2 NVD API 2.0 client: pagination, rate-limit respect, required attribution string in outputs, error/stale handling (403 → explicit error, not silence)
+- [ ] 3.3 EPSS client: api.first.org with stale-marking (>7 days)
+- [ ] 3.4 OSV client: api.osv.dev with alias/related handling for dedup
+- [ ] 3.5 CWE lookup: single-CWE endpoint only (top-25 UNVERIFIED — skipped with comment), OWASP Top 10:2025 mapping table for classification
+- [ ] 3.6 `internal/vulnerability/normalize`: normalized Vulnerability model fusing KEV/NVD/EPSS/OSV/CWE with provenance per source
+- [ ] 3.7 `riskx vuln` command: lookup + bulk enrichment of discovered assets (CPE matching deferred — documented limitation)
+- [ ] 3.8 Phase 3 tests: unit with fixtures (KEV snapshot, recorded NVD/EPSS/OSV responses), API-failure and rate-limit simulation cases, malformed-CVE-input cases, duplicate-vuln cases
+
+## Phase 4 — Risk Engine (risk-v1)
+
+- [ ] 4.1 Factor implementations: exposure, known-exploitation (KEV), predicted-exploitation (EPSS), criticality, path-position hook, identity-privilege hook, standards-gap hook
+- [ ] 4.2 Scoring function with configurable YAML weights; factor table output; `Model Version: risk-v1`
+- [ ] 4.3 Evidence fusion: finding ← asset + vuln + evidence chain; confidence typing high/medium/low/insufficient
+- [ ] 4.4 Staleness + incomplete-visibility metadata per §48 (feed stale / visibility incomplete surfaced in outputs)
+- [ ] 4.5 Golden tests: fixed fixtures assert exact scores + factor tables; negative tests (missing evidence → capped scores, never guessed)
+- [ ] 4.6 `riskx risk` command + policy integration (risk-v1 scores feed policy evaluation)
+
+## Phase 5 — Attack Graph (graph-v1)
+
+- [ ] 5.1 Graph data model: nodes (assets/identities), edges with status + risk weight + evidence
+- [ ] 5.2 Traversals: BFS enumeration, Dijkstra weighted ranking, degree + approximate betweenness centrality
+- [ ] 5.3 Path rendering: Internet→entry→privilege→target chains with per-edge evidence status; Inferred clearly distinguished
+- [ ] 5.4 `riskx graph` and `riskx attack-path` commands
+- [ ] 5.5 Tests: unit graph fixtures, path-ranking golden tests, duplicate-edge handling
+- [ ] 5.6 Benchmark harness: graph traversal perf with methodology notes (spec §29) — record results in docs/research/benchmarks.md
+
+## Phase 6 — Reporting & Export (completes MVP outputs)
+
+- [ ] 6.1 `riskx report`: executive summary / risk overview / critical exposures / affected assets / evidence / remediation sections (attack-path/identity/cloud/agent/MCP sections marked as future phases)
+- [ ] 6.2 JSONL and CSV serializers over canonical JSON
+- [ ] 6.3 SARIF evaluation + placeholder (deferred to Phase 11 pending spec-verification)
+- [ ] 6.4 `--suppress` / `--exception` with reason/owner/created_at/expires_at (no permanent silent suppression)
+- [ ] 6.5 Phase 6 tests: output golden tests, CSV/JSONL roundtrip, suppression expiration behavior
+
+## Cross-cutting (parallel, ongoing)
+
+- [ ] Q.1 README.md final (evidence-based, no marketing claims, attribution strings, versions table, CLI contract, limitations)
+- [ ] Q.2 CI workflow: go test -race, go vet, golangci-lint, dependency pinning check (Phase 11 adds signing/SBOM)
+- [ ] Q.3 Dependency scan baseline (go mod tidy + audit); secret-scan baseline of repo
+- [ ] Q.4 Benchmarks: discovery speed, vuln ingestion throughput, memory/CPU — recorded with hardware/methodology in docs/research/benchmarks.md
+- [ ] Q.5 Re-verify tracked UNVERIFIED items before each dependent implementation (CWE top-25 API, MCP architecture page, SARIF version, NVD rate limits with key)
+
+## Verification Gates (Definition of Done, per spec §43)
+
+Before any phase is marked done: research cited, primary sources identified, architecture/ADR updated if changed, threat model reviewed, implementation complete, unit + integration + security + negative tests added, documentation + CLI help added, error handling + evidence model + logging implemented, performance considered, false-positive risk evaluated, limitations documented, reproducible tests present, code quality checks pass.
+
+## Out of MVP Scope (tracked, not to be built yet)
+
+Phase 6 (Identity/IAM), Phase 7 (Cloud — AWS candidate per ADR-0007), Phase 8 (AI-Agent), Phase 9 (MCP), Phase 10 (AI/RAG), Phase 11 (Enterprise: SARIF, RBAC, audit, SBOM, signed releases, centralized deployment), CAASM aggregation, CPE-based component matching, SaaS posture (SCuBA), containers/K8s deep inspection, BAS/active exploitation, multi-tenant server mode, PostgreSQL backend, graph-store migration.
