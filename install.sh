@@ -122,6 +122,7 @@ echo "==> SHA-256 checksum verified"
 # --- Install ---------------------------------------------------------------
 if [ -n "${RISKX_BIN_DIR}" ]; then
   INSTALL_DIR="${RISKX_BIN_DIR}"
+  mkdir -p "${INSTALL_DIR}"
 elif [ -d "$HOME/.local/bin" ]; then
   INSTALL_DIR="$HOME/.local/bin"
 else

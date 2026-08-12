@@ -15,7 +15,7 @@ before:
 builds:
   - id: riskx
     main: ./cmd/riskx
-    binary: riskx_{{ .Os }}_{{ .Arch }}{{ if eq .Os "windows" }}.exe{{ end }}
+    binary: riskx_{{ .Os }}_{{ .Arch }}
     goos:
       - linux
       - darwin
