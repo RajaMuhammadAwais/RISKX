@@ -1,14 +1,16 @@
 <div align="center">
 
 ```
- ____            _
-|  _ \ _____   _(_)_ __ ___   ___  ___
-| |_) / _ \ \ / / | '_ ` _ \ / _ \/ __|
-|  _ < (_) \ V /| | | | | | |  __/\__ \
-|_| \_\___/ \_/ |_|_| |_| |_|\___||___/
+╔══════════════════════════════════════════════════╗
+║  RRRR   IIIII  SSSSS   K      XXX   XXX         ║
+║  R   R    I   SS       K     XXX   XXX          ║
+║  RRRR     I    SSSS    K     XXX XXX            ║
+║  R  R     I       SS   K      XXXXX             ║
+║  R   R    I   SSSSS   K     XXX XXX             ║
+╚══════════════════════════════════════════════════╝
 ```
 
-# RISKX
+### RISKX
 
 ### Enterprise Cyber-Risk CLI — Research-First. Evidence-Backed. No Guessing.
 
@@ -49,6 +51,16 @@ Most security tools present conclusions as facts. RISKX presents conclusions wit
 | Freshness discipline | Feeds declare age; stale data is marked, never hidden |
 | Determinism | Risk model `risk-v1` is fully deterministic and reproducible |
 | Machine-readable | Canonical versioned JSON on every command (`--json`) |
+
+## What's New in v0.3.0
+
+| Feature | Description |
+| --- | --- |
+| `riskx serve` | Serves the evidence store as a **read-only JSON API** for agents, SIEM, and BI tooling (`GET /v1/assets`, `/v1/findings`, `/v1/evidence`, `/v1/relationships`, `/v1/risk`, `/v1/health`, `/v1/metadata`). Access is protected by a **user-supplied API key** (`RISKX_API_KEY` env or `--key` flag — no key, no access: 401). Defaults to loopback only (`127.0.0.1:8890`). |
+| `riskx discover --ct` | **Certificate-transparency enumeration** over public CT logs (verified [SSLMate certspotter API](https://sslmate.com/ct_search_api/)). Pure observation — zero packets sent to the target. Wildcard SANs are reported as-is, never expanded into guessed hostnames. Results carry `certificate_transparency` provenance and persist to the evidence store with `--data`. |
+| `riskx explain` | Optional **LLM explanation layer** (OFF by default). The operator supplies their own LLM API key (`RISKX_LLM_API_KEY` — never embedded, never logged) and names their own model (`llm.model`). Supports any OpenAI-compatible endpoint, including self-hosted providers via `llm.base_url`. The LLM may only **explain verified native content**; it never sets severity, confidence, classification, or remediation. Provider failures degrade gracefully — the native output always prints. |
+
+These updates follow the research-backed roadmap (P0: agent data layer, CT-log attack-surface depth, agentic AI consumers): agents integrate over the canonical JSON evidence API instead of building their own scanners. Full flag tables are in the [Flags Reference](#flags-reference).
 
 ## Operating System Compatibility
 
@@ -360,6 +372,15 @@ Feeds declare freshness; data older than its allowed age is marked `stale`.
 | [CWE](https://cwe.mitre.org/) | Weakness classification | MITRE |
 | [OWASP Top 10:2025](https://owasp.org/Top10/) | Application-risk classification | OWASP |
 | [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/) | AI-agent/MCP-risk classification | OWASP |
+| [SSLMate certspotter](https://sslmate.com/ct_search_api/) | Certificate-transparency subdomain enumeration (`--ct`) | SSLMate |
+
+## Environment Variables
+
+| Variable | Purpose | Used by |
+| --- | --- | --- |
+| `RISKX_DATA` | Default evidence store path (`--data` override) | all analysis commands |
+| `RISKX_API_KEY` | API key for `riskx serve` (`--key` override) | `serve` |
+| `RISKX_LLM_API_KEY` | Operator's own LLM API key (never embedded, never logged) | `explain` (LLM layer, off by default) |
 
 ## Versioned Data Models
 
