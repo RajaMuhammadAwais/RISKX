@@ -5,11 +5,9 @@ RISKX is a security tool; its own security posture is treated as a critical asse
 ## Reporting a Vulnerability
 
 - **Do not** open a public issue for security vulnerabilities.
-- Email: security@risks-research-placeholder.invalid *(will be replaced once a real
-  security contact is established; currently the project is in research phase)*.
-
-If a real security contact address is not yet available, file a vulnerability via the
-GitHub "Report a vulnerability" flow: <https://github.com/RajaMuhammadAwais/RISKX/security>.
+- File a vulnerability via GitHub's private disclosure flow:
+  <https://github.com/RajaMuhammadAwais/RISKX/security>
+- Alternatively, contact the author directly at <https://github.com/RajaMuhammadAwais>.
 
 ## Scope of This Policy
 
